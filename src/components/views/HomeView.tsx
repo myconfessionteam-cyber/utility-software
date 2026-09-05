@@ -106,7 +106,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate }) => {
       </section>
 
       {/* 2. Recently Used (If present) */}
-      {recentTools.length > 0 && (
+      {Array.isArray(recentTools) && recentTools.length > 0 && (
         <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-2 mb-4">
             <span className="w-2 h-5 bg-blue-600 rounded-full inline-block"></span>
@@ -114,7 +114,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate }) => {
             <h2 className="text-base font-bold text-slate-800 dark:text-white">Recently Used Tools</h2>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
-            {recentTools.slice(0, 6).map(slug => {
+            {(recentTools || []).slice(0, 6).map(slug => {
               const tool = getToolBySlug(slug);
               if (!tool) return null;
               return (
@@ -136,28 +136,55 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate }) => {
         </section>
       )}
 
-      {/* 3. Popular & Trending Utilities */}
+      {/* 3. Popular & Featured Utilities with Category Tabs */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
             <h2 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-2.5">
               <span className="w-2 h-6 bg-blue-600 rounded-full inline-block"></span>
-              Popular Tools
+              Instant Online Utilities
             </h2>
             <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
-              The most loved everyday utilities used by thousands of users worldwide.
+              Select any tool below to launch and use it immediately — 100% private and client-side.
             </p>
           </div>
           <button
             onClick={() => onNavigate('/all-tools')}
-            className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+            className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 self-start sm:self-auto"
           >
             All 40+ Tools <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>
 
+        {/* Category Tabs */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-3 mb-6 no-scrollbar border-b border-slate-200 dark:border-slate-800">
+          <button
+            onClick={() => setSelectedCategoryTab('all')}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${
+              selectedCategoryTab === 'all'
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800'
+            }`}
+          >
+            🌟 Popular Tools
+          </button>
+          {CATEGORIES.map(cat => (
+            <button
+              key={cat.id}
+              onClick={() => setSelectedCategoryTab(cat.id)}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${
+                selectedCategoryTab === cat.id
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800'
+              }`}
+            >
+              {cat.name}
+            </button>
+          ))}
+        </div>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {popularTools.map(tool => {
+          {(selectedCategoryTab === 'all' ? popularTools : displayedTools).map(tool => {
             const favored = isFavorite(tool.slug);
             return (
               <div
@@ -194,7 +221,9 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate }) => {
 
                 <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs font-semibold text-blue-600 dark:text-blue-400">
                   <span className="text-[10px] text-slate-400 uppercase tracking-wider font-bold">{tool.category.replace('-tools', '')}</span>
-                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                  <span className="flex items-center gap-1 group-hover:underline">
+                    Open Tool <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                  </span>
                 </div>
               </div>
             );
@@ -241,15 +270,20 @@ export const HomeView: React.FC<HomeViewProps> = ({ onNavigate }) => {
                     {category.shortDescription}
                   </p>
 
-                  {/* Sample Tool tags */}
+                  {/* Sample Tool tags - clickable */}
                   <div className="flex flex-wrap gap-1.5 mt-4">
                     {catTools.slice(0, 3).map(t => (
-                      <span
+                      <button
                         key={t.id}
-                        className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded text-[10px] uppercase font-bold"
+                        type="button"
+                        onClick={e => {
+                          e.stopPropagation();
+                          onNavigate(`/${t.category}/${t.slug}`);
+                        }}
+                        className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-950 hover:text-blue-600 text-slate-600 dark:text-slate-300 rounded text-[10px] uppercase font-bold transition-colors"
                       >
                         {t.name}
-                      </span>
+                      </button>
                     ))}
                     {catTools.length > 3 && (
                       <span className="text-[10px] px-1.5 py-0.5 text-slate-400 font-semibold">

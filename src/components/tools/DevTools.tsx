@@ -48,6 +48,7 @@ export const DevTools: React.FC<DevToolProps> = ({ toolSlug }) => {
       const parsed = JSON.parse(inputVal);
       const formatted = JSON.stringify(parsed, null, spaces);
       setInputVal(formatted);
+      setOutputVal(formatted);
       setJsonError(null);
       setJsonStats({
         keys: Object.keys(parsed).length,
@@ -64,6 +65,7 @@ export const DevTools: React.FC<DevToolProps> = ({ toolSlug }) => {
       const parsed = JSON.parse(inputVal);
       const minified = JSON.stringify(parsed);
       setInputVal(minified);
+      setOutputVal(minified);
       setJsonError(null);
       showToast('Minified JSON successfully!');
     } catch (err: any) {
@@ -81,6 +83,7 @@ export const DevTools: React.FC<DevToolProps> = ({ toolSlug }) => {
           keys: typeof parsed === 'object' && parsed !== null ? Object.keys(parsed).length : 1,
           size: new Blob([inputVal]).size,
         });
+        setOutputVal(JSON.stringify(parsed, null, 2));
       } catch (err: any) {
         setJsonError(err.message);
         setJsonStats(null);

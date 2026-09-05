@@ -110,14 +110,14 @@ export const SearchDialog: React.FC<SearchDialogProps> = ({ onNavigate }) => {
           {query.trim() === '' ? (
             <div className="p-3">
               {/* Recently Used Tools */}
-              {recentTools.length > 0 && (
+              {Array.isArray(recentTools) && recentTools.length > 0 && (
                 <div className="mb-4">
                   <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-400 dark:text-slate-500 mb-2 uppercase tracking-wider px-2">
                     <Clock className="w-3.5 h-3.5 text-blue-600" />
                     <span>Recently Used</span>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                    {recentTools.slice(0, 4).map(slug => {
+                    {(recentTools || []).slice(0, 4).map(slug => {
                       const tool = getToolBySlug(slug);
                       if (!tool) return null;
                       return (

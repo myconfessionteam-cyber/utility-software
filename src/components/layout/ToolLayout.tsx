@@ -16,6 +16,7 @@ import { DevTools } from '../tools/DevTools';
 import { CalculatorTools } from '../tools/CalculatorTools';
 import { BangladeshTools } from '../tools/BangladeshTools';
 import { UtilityTools } from '../tools/UtilityTools';
+import { AiTools } from '../tools/AiTools';
 
 interface ToolLayoutProps {
   tool: ToolDefinition;
@@ -46,22 +47,32 @@ export const ToolLayout: React.FC<ToolLayoutProps> = ({ tool, onNavigate }) => {
       case 'developer-tools':
         return <DevTools toolSlug={tool.slug} />;
       case 'calculators':
+      case 'converters':
+      case 'date-time-tools':
         return <CalculatorTools toolSlug={tool.slug} />;
       case 'bangladesh-tools':
         return <BangladeshTools toolSlug={tool.slug} />;
-      case 'security-tools':
-      case 'converter-tools':
-      case 'daily-utilities':
+      case 'qr-tools':
+      case 'privacy-tools':
+        return <UtilityTools toolSlug={tool.slug} />;
+      case 'ai-tools':
+        return <AiTools toolSlug={tool.slug} />;
       default:
         // Match specific specialized slugs if in other categories
+        if (tool.slug === 'ai-summarizer') {
+          return <AiTools toolSlug={tool.slug} />;
+        }
         if (['qr-code-generator', 'password-generator', 'stopwatch'].includes(tool.slug)) {
           return <UtilityTools toolSlug={tool.slug} />;
         }
-        if (['base64-encoder', 'url-encoder', 'uuid-generator', 'hash-generator', 'unix-timestamp-converter'].includes(tool.slug)) {
+        if (['base64-encoder', 'url-encoder', 'uuid-generator', 'hash-generator', 'unix-timestamp-converter', 'jwt-decoder', 'regex-tester', 'json-formatter', 'json-validator'].includes(tool.slug)) {
           return <DevTools toolSlug={tool.slug} />;
         }
-        if (['unit-converter', 'percentage-calculator', 'age-calculator'].includes(tool.slug)) {
+        if (['unit-converter', 'timezone-converter', 'percentage-calculator', 'age-calculator', 'gpa-calculator', 'discount-calculator', 'date-difference-calculator', 'loan-emi-calculator'].includes(tool.slug)) {
           return <CalculatorTools toolSlug={tool.slug} />;
+        }
+        if (['bangla-english-typing', 'bangladesh-land-converter', 'bangladesh-age-calculator', 'passport-photo-resizer'].includes(tool.slug)) {
+          return <BangladeshTools toolSlug={tool.slug} />;
         }
         return <TextTools toolSlug={tool.slug} />;
     }
@@ -206,10 +217,15 @@ export const ToolLayout: React.FC<ToolLayoutProps> = ({ tool, onNavigate }) => {
       </section>
 
       {/* FAQ Section */}
-      <FAQSection faqs={tool.faqs} toolName={tool.name} />
+      <FAQSection faqs={tool.faqs || []} toolName={tool.name} />
 
       {/* Related Tools Recommendations */}
-      <RelatedTools toolSlugs={tool.relatedTools} onNavigate={onNavigate} />
+      <RelatedTools
+        toolSlugs={tool.relatedToolSlugs || []}
+        category={tool.category}
+        currentSlug={tool.slug}
+        onNavigate={onNavigate}
+      />
     </div>
   );
 };

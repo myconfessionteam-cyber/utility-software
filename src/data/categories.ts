@@ -101,3 +101,7 @@ export const CATEGORIES: Category[] = [
     color: 'text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/40 border-orange-200 dark:border-orange-900',
   },
 ];
+
+export function getCategoryBySlug(slug: string): Category | undefined {
+  return CATEGORIES.find(c => c.slug === slug || c.id === slug);
+}

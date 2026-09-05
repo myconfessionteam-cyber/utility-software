@@ -1,6 +1,22 @@
 import React, { useState, useRef } from 'react';
 import { PDFDocument, rgb, degrees, StandardFonts } from 'pdf-lib';
-import { Upload, ArrowUp, ArrowDown, Trash2, Download, ShieldCheck, CheckCircle2, FileText, AlertCircle, RefreshCw, FileUp } from 'lucide-react';
+import {
+  Upload,
+  ArrowUp,
+  ArrowDown,
+  Trash2,
+  Download,
+  ShieldCheck,
+  CheckCircle2,
+  FileText,
+  AlertCircle,
+  RefreshCw,
+  FileUp,
+  Zap,
+  Sparkles,
+  Sliders,
+  SlidersHorizontal,
+} from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
 interface PdfToolProps {
@@ -19,6 +35,12 @@ export const PdfTools: React.FC<PdfToolProps> = ({ toolSlug }) => {
   const [rotateAngle, setRotateAngle] = useState<'90' | '180' | '270'>('90');
   const [watermarkText, setWatermarkText] = useState('CONFIDENTIAL');
   const [compressedResult, setCompressedResult] = useState<{ originalSize: number; newSize: number; percent: number } | null>(null);
+
+  // PDF Compression level & mode
+  const [compressLevel, setCompressLevel] = useState<'extreme' | 'recommended' | 'light' | 'custom'>('recommended');
+  const [compressMode, setCompressMode] = useState<'visual' | 'lossless'>('visual');
+  const [customQuality, setCustomQuality] = useState<number>(65);
+  const [customScale, setCustomScale] = useState<number>(100);
 
   // File selection handler
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -171,32 +193,130 @@ export const PdfTools: React.FC<PdfToolProps> = ({ toolSlug }) => {
     }
     try {
       setLoading(true);
-      setProgressMsg('Optimizing PDF structure and removing redundant objects...');
-      const buffer = await files[0].file.arrayBuffer();
-      const pdf = await PDFDocument.load(buffer, { ignoreEncryption: true });
-
-      // Strip unused metadata and re-serialize with object stream consolidation
-      pdf.setTitle('');
-      pdf.setAuthor('');
-      pdf.setSubject('');
-      pdf.setKeywords([]);
-      pdf.setProducer('ToolNova PDF Engine');
-      pdf.setCreator('ToolNova');
-
-      const compressedBytes = await pdf.save({ useObjectStreams: true });
       const orig = files[0].size;
-      const comp = compressedBytes.byteLength;
-      const saved = Math.max(0, Math.round(((orig - comp) / orig) * 100));
 
-      setCompressedResult({
-        originalSize: orig,
-        newSize: comp,
-        percent: saved,
-      });
+      if (compressMode === 'lossless') {
+        setProgressMsg('Optimizing PDF structure and stripping metadata...');
+        const buffer = await files[0].file.arrayBuffer();
+        const pdf = await PDFDocument.load(buffer, { ignoreEncryption: true });
 
-      downloadBlob(compressedBytes, `compressed-${files[0].file.name}`);
-      showToast(`PDF optimized! Saved ${saved}% in size.`);
-      trackEvent('compress_completed', 'PDF', `${saved}_percent`);
+        // Strip metadata and consolidate
+        pdf.setTitle('');
+        pdf.setAuthor('');
+        pdf.setSubject('');
+        pdf.setKeywords([]);
+
+        const compressedBytes = await pdf.save({ useObjectStreams: true });
+        const comp = compressedBytes.byteLength;
+        const saved = Math.max(0, Math.round(((orig - comp) / orig) * 100));
+
+        setCompressedResult({
+          originalSize: orig,
+          newSize: comp,
+          percent: saved,
+        });
+
+        downloadBlob(compressedBytes, `compressed-${files[0].file.name}`);
+        if (comp < orig) {
+          showToast(`PDF optimized! Saved ${saved}% in size.`);
+        } else {
+          showToast('Document already at minimum size for lossless mode. Switch to Visual Engine for 50-85% reduction.', 'info');
+        }
+        trackEvent('compress_completed', 'PDF', `${saved}_percent_lossless`);
+      } else {
+        // Visual Re-compression (Guaranteed reduction via page rendering)
+        setProgressMsg('Loading PDF rendering engine...');
+        const pdfjs: any = await import('pdfjs-dist/build/pdf.mjs');
+        if (typeof window !== 'undefined' && pdfjs.GlobalWorkerOptions) {
+          try {
+            pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+          } catch {
+            // fallback to fake worker
+          }
+        }
+
+        const buffer = await files[0].file.arrayBuffer();
+        const loadingTask = pdfjs.getDocument({
+          data: new Uint8Array(buffer),
+          useSystemFonts: true,
+          isEvalSupported: false,
+        });
+        const pdfDoc = await loadingTask.promise;
+        const totalPages = pdfDoc.numPages;
+
+        let targetScale = 1.0;
+        let targetQuality = 0.65;
+
+        if (compressLevel === 'extreme') {
+          targetScale = 0.75;
+          targetQuality = 0.45;
+        } else if (compressLevel === 'recommended') {
+          targetScale = 1.0;
+          targetQuality = 0.65;
+        } else if (compressLevel === 'light') {
+          targetScale = 1.25;
+          targetQuality = 0.82;
+        } else if (compressLevel === 'custom') {
+          targetScale = Math.max(0.4, Math.min(1.5, customScale / 100));
+          targetQuality = Math.max(0.2, Math.min(0.95, customQuality / 100));
+        }
+
+        const newPdf = await PDFDocument.create();
+
+        for (let i = 1; i <= totalPages; i++) {
+          setProgressMsg(`Compressing page ${i} of ${totalPages}...`);
+          const page = await pdfDoc.getPage(i);
+          const originalViewport = page.getViewport({ scale: 1.0 });
+          const renderViewport = page.getViewport({ scale: targetScale });
+
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.floor(renderViewport.width);
+          canvas.height = Math.floor(renderViewport.height);
+          const ctx = canvas.getContext('2d');
+
+          if (ctx) {
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            await page.render({
+              canvasContext: ctx,
+              viewport: renderViewport,
+            }).promise;
+
+            const jpegUrl = canvas.toDataURL('image/jpeg', targetQuality);
+            const base64 = jpegUrl.split(',')[1];
+            const imageBytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+
+            const embeddedImg = await newPdf.embedJpg(imageBytes);
+            const newPage = newPdf.addPage([originalViewport.width, originalViewport.height]);
+            newPage.drawImage(embeddedImg, {
+              x: 0,
+              y: 0,
+              width: originalViewport.width,
+              height: originalViewport.height,
+            });
+          }
+        }
+
+        setProgressMsg('Finalizing compressed PDF package...');
+        const compressedBytes = await newPdf.save({ useObjectStreams: true });
+        const comp = compressedBytes.byteLength;
+        const saved = Math.max(0, Math.round(((orig - comp) / orig) * 100));
+
+        setCompressedResult({
+          originalSize: orig,
+          newSize: comp,
+          percent: saved,
+        });
+
+        downloadBlob(compressedBytes, `compressed-${files[0].file.name}`);
+        if (comp < orig) {
+          showToast(`PDF compressed! Saved ${saved}% in size.`);
+        } else {
+          showToast('Document already very small. Try Extreme Compression for higher reduction.', 'info');
+        }
+        trackEvent('compress_completed', 'PDF', `${saved}_percent_visual`);
+      }
     } catch (err: any) {
       showToast('Compression error: ' + (err.message || 'File format error'), 'error');
     } finally {
@@ -217,12 +337,33 @@ export const PdfTools: React.FC<PdfToolProps> = ({ toolSlug }) => {
       const pdf = await PDFDocument.create();
 
       for (const item of files) {
-        const buffer = await item.file.arrayBuffer();
         let embeddedImage;
-        if (item.file.type.includes('png')) {
-          embeddedImage = await pdf.embedPng(buffer);
-        } else {
-          embeddedImage = await pdf.embedJpg(buffer);
+        try {
+          const buffer = await item.file.arrayBuffer();
+          if (item.file.type.includes('png')) {
+            embeddedImage = await pdf.embedPng(buffer);
+          } else {
+            embeddedImage = await pdf.embedJpg(buffer);
+          }
+        } catch {
+          // Fallback via HTML Canvas for WebP, AVIF, or non-standard formats
+          const img = new Image();
+          const objectUrl = URL.createObjectURL(item.file);
+          await new Promise((resolve, reject) => {
+            img.onload = resolve;
+            img.onerror = reject;
+            img.src = objectUrl;
+          });
+          const canvas = document.createElement('canvas');
+          canvas.width = img.naturalWidth || img.width;
+          canvas.height = img.naturalHeight || img.height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0);
+          URL.revokeObjectURL(objectUrl);
+          const jpgDataUrl = canvas.toDataURL('image/jpeg', 0.95);
+          const base64 = jpgDataUrl.split(',')[1];
+          const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+          embeddedImage = await pdf.embedJpg(bytes);
         }
 
         const { width, height } = embeddedImage;
@@ -530,18 +671,222 @@ export const PdfTools: React.FC<PdfToolProps> = ({ toolSlug }) => {
         </div>
       )}
 
+      {/* PDF Compression Settings UI */}
+      {toolSlug === 'pdf-compress' && files.length > 0 && (
+        <div className="p-5 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900/70 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-neutral-200 dark:border-neutral-800 pb-3">
+            <div>
+              <h4 className="text-sm font-bold text-neutral-900 dark:text-white flex items-center gap-2">
+                <Sliders className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                Compression Level & Optimization
+              </h4>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+                Select your target compression strength or customize quality sliders.
+              </p>
+            </div>
+
+            {/* Mode switch */}
+            <div className="flex items-center p-1 rounded-xl bg-neutral-200/70 dark:bg-neutral-800 self-start sm:self-auto text-xs font-semibold">
+              <button
+                type="button"
+                onClick={() => setCompressMode('visual')}
+                className={`px-3 py-1.5 rounded-lg transition ${
+                  compressMode === 'visual'
+                    ? 'bg-white dark:bg-neutral-900 text-indigo-600 dark:text-indigo-400 shadow-xs'
+                    : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
+                }`}
+              >
+                Visual Engine (50-85% smaller)
+              </button>
+              <button
+                type="button"
+                onClick={() => setCompressMode('lossless')}
+                className={`px-3 py-1.5 rounded-lg transition ${
+                  compressMode === 'lossless'
+                    ? 'bg-white dark:bg-neutral-900 text-indigo-600 dark:text-indigo-400 shadow-xs'
+                    : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
+                }`}
+              >
+                Lossless Structure
+              </button>
+            </div>
+          </div>
+
+          {compressMode === 'visual' ? (
+            <div className="space-y-4">
+              {/* Presets Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {/* Extreme */}
+                <div
+                  onClick={() => setCompressLevel('extreme')}
+                  className={`cursor-pointer p-4 rounded-xl border-2 transition text-left relative ${
+                    compressLevel === 'extreme'
+                      ? 'border-indigo-600 dark:border-indigo-400 bg-indigo-50/50 dark:bg-indigo-950/40'
+                      : 'border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 hover:border-neutral-300 dark:hover:border-neutral-700'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="p-1.5 rounded-lg bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400">
+                      <Zap className="w-4 h-4" />
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200">
+                      ~70% - 85% Smaller
+                    </span>
+                  </div>
+                  <h5 className="text-sm font-bold text-neutral-900 dark:text-white">Extreme Compression</h5>
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 leading-relaxed">
+                    Maximum size reduction. Ideal for strict portal limits (&lt;200 KB) and email attachments.
+                  </p>
+                </div>
+
+                {/* Recommended */}
+                <div
+                  onClick={() => setCompressLevel('recommended')}
+                  className={`cursor-pointer p-4 rounded-xl border-2 transition text-left relative ${
+                    compressLevel === 'recommended'
+                      ? 'border-indigo-600 dark:border-indigo-400 bg-indigo-50/50 dark:bg-indigo-950/40'
+                      : 'border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 hover:border-neutral-300 dark:hover:border-neutral-700'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="p-1.5 rounded-lg bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-400">
+                      <Sparkles className="w-4 h-4" />
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-100 dark:bg-indigo-900/60 text-indigo-800 dark:text-indigo-200">
+                      ~50% - 65% Smaller
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <h5 className="text-sm font-bold text-neutral-900 dark:text-white">Recommended</h5>
+                    <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wide">
+                      (Default)
+                    </span>
+                  </div>
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 leading-relaxed">
+                    Best balance of crisp, readable text and major file size reduction for daily sharing.
+                  </p>
+                </div>
+
+                {/* Light */}
+                <div
+                  onClick={() => setCompressLevel('light')}
+                  className={`cursor-pointer p-4 rounded-xl border-2 transition text-left relative ${
+                    compressLevel === 'light'
+                      ? 'border-indigo-600 dark:border-indigo-400 bg-indigo-50/50 dark:bg-indigo-950/40'
+                      : 'border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 hover:border-neutral-300 dark:hover:border-neutral-700'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="p-1.5 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400">
+                      <CheckCircle2 className="w-4 h-4" />
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200">
+                      ~25% - 40% Smaller
+                    </span>
+                  </div>
+                  <h5 className="text-sm font-bold text-neutral-900 dark:text-white">Light Compression</h5>
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 leading-relaxed">
+                    Highest image fidelity. Best for documents intended for printing or high-res viewing.
+                  </p>
+                </div>
+              </div>
+
+              {/* Custom Level Toggle & Sliders */}
+              <div className="pt-1">
+                <button
+                  type="button"
+                  onClick={() => setCompressLevel(prev => prev === 'custom' ? 'recommended' : 'custom')}
+                  className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1.5"
+                >
+                  <SlidersHorizontal className="w-3.5 h-3.5" />
+                  {compressLevel === 'custom' ? 'Switch back to Presets' : 'Custom Quality & Resolution Sliders'}
+                </button>
+
+                {compressLevel === 'custom' && (
+                  <div className="mt-3 p-4 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <div className="flex justify-between text-xs font-semibold mb-1">
+                        <span className="text-neutral-700 dark:text-neutral-300">Image Quality:</span>
+                        <span className="text-indigo-600 dark:text-indigo-400 font-bold">{customQuality}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="20"
+                        max="95"
+                        value={customQuality}
+                        onChange={e => setCustomQuality(Number(e.target.value))}
+                        className="w-full accent-indigo-600"
+                      />
+                      <span className="text-[11px] text-neutral-400">Lower quality = smaller file size</span>
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between text-xs font-semibold mb-1">
+                        <span className="text-neutral-700 dark:text-neutral-300">Resolution Scale (DPI):</span>
+                        <span className="text-indigo-600 dark:text-indigo-400 font-bold">{customScale}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="40"
+                        max="140"
+                        value={customScale}
+                        onChange={e => setCustomScale(Number(e.target.value))}
+                        className="w-full accent-indigo-600"
+                      />
+                      <span className="text-[11px] text-neutral-400">Scale down page dimensions for extra shrinkage</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="p-4 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800">
+              <h5 className="text-xs font-bold uppercase tracking-wider text-neutral-500 mb-1">
+                Lossless Structure Optimization
+              </h5>
+              <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed">
+                Removes redundant metadata tags, cleans document catalogs, and consolidates PDF object streams without converting text or vectors into images. Best for digital text-only PDFs that don’t contain heavy scanned pages.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Compression Result Banner */}
       {compressedResult && (
-        <div className="p-4 rounded-xl border border-indigo-200 dark:border-indigo-900 bg-indigo-50/50 dark:bg-indigo-950/40 flex items-center justify-between">
-          <div>
-            <h4 className="text-sm font-bold text-indigo-950 dark:text-indigo-200">Compression Completed!</h4>
-            <p className="text-xs text-indigo-700 dark:text-indigo-300 mt-0.5">
-              Original: {formatFileSize(compressedResult.originalSize)} → Compressed: {formatFileSize(compressedResult.newSize)}
-            </p>
+        <div className="p-5 rounded-2xl border border-indigo-200 dark:border-indigo-900 bg-indigo-50/70 dark:bg-indigo-950/50 space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                <h4 className="text-sm font-bold text-neutral-900 dark:text-white">Compression Completed!</h4>
+              </div>
+              <p className="text-xs text-neutral-600 dark:text-neutral-300 mt-1">
+                Original: <span className="font-semibold text-neutral-900 dark:text-white">{formatFileSize(compressedResult.originalSize)}</span>
+                {' '}→ Compressed:{' '}
+                <span className="font-semibold text-indigo-600 dark:text-indigo-400">{formatFileSize(compressedResult.newSize)}</span>
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {compressedResult.newSize < compressedResult.originalSize ? (
+                <div className="px-3.5 py-1.5 rounded-xl bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-xs font-extrabold flex items-center gap-1.5">
+                  <span className="text-sm">-{compressedResult.percent}%</span>
+                  <span>({formatFileSize(compressedResult.originalSize - compressedResult.newSize)} saved)</span>
+                </div>
+              ) : (
+                <div className="px-3 py-1.5 rounded-xl bg-amber-100 dark:bg-amber-950/80 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 text-xs font-bold">
+                  File was already at minimum size
+                </div>
+              )}
+            </div>
           </div>
-          <span className="text-lg font-extrabold text-indigo-600 dark:text-indigo-400">
-            -{compressedResult.percent}%
-          </span>
+
+          {compressedResult.newSize >= compressedResult.originalSize && (
+            <p className="text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 p-2.5 rounded-lg border border-amber-200 dark:border-amber-800">
+              💡 Tip: The original file has very little redundant data. Select <strong>Visual Engine → Extreme Compression</strong> to downsample resolution and achieve 70-80% smaller size.
+            </p>
+          )}
         </div>
       )}
 

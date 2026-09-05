@@ -432,6 +432,69 @@ export const TextTools: React.FC<TextToolProps> = ({ toolSlug }) => {
           </p>
         </div>
       </div>
+
+      {/* Dedicated Panel: Character Counter Platform Limits */}
+      {toolSlug === 'character-counter' && (
+        <div className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-3 shadow-xs">
+          <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Social Media & SEO Character Limits</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 pt-1">
+            {[
+              { name: 'X / Twitter Post', max: 280 },
+              { name: 'SMS Text Message', max: 160 },
+              { name: 'Google Title Tag', max: 60 },
+              { name: 'Meta Description', max: 160 },
+              { name: 'LinkedIn Post', max: 3000 },
+              { name: 'Instagram Caption', max: 2200 },
+            ].map(platform => {
+              const current = wordStats.charCount;
+              const percent = Math.min(100, Math.round((current / platform.max) * 100));
+              const isOver = current > platform.max;
+              return (
+                <div key={platform.name} className="p-3 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
+                  <div className="flex justify-between text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    <span>{platform.name}</span>
+                    <span className={isOver ? 'text-rose-500 font-bold' : 'text-slate-500'}>
+                      {current} / {platform.max}
+                    </span>
+                  </div>
+                  <div className="w-full bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full mt-2 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${isOver ? 'bg-rose-500' : percent > 80 ? 'bg-amber-500' : 'bg-blue-600'}`}
+                      style={{ width: `${percent}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Dedicated Panel: Word Counter Keyword Density */}
+      {toolSlug === 'word-counter' && (
+        <div className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-3 shadow-xs">
+          <div className="flex justify-between items-center">
+            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Top Keyword Density</h3>
+            <span className="text-xs text-slate-400">Speaking time: ~{Math.ceil(wordStats.speakingTimeSec / 60)} min</span>
+          </div>
+          {wordStats.topKeywords.length > 0 ? (
+            <div className="flex flex-wrap gap-2 pt-1">
+              {wordStats.topKeywords.map(([word, count]) => {
+                const density = wordStats.wordCount > 0 ? ((count / wordStats.wordCount) * 100).toFixed(1) : '0';
+                return (
+                  <div key={word} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs">
+                    <span className="font-bold text-slate-800 dark:text-slate-200">{word}</span>
+                    <span className="text-slate-400">×{count}</span>
+                    <span className="text-blue-600 dark:text-blue-400 font-semibold">({density}%)</span>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-xs text-slate-400 italic">Type more words to see top keyword density analysis...</p>
+          )}
+        </div>
+      )}
     </div>
   );
 };

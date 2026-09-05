@@ -1,17 +1,41 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Sparkles, ArrowRight } from 'lucide-react';
-import { getToolBySlug } from '../../data/tools';
+import { getToolBySlug, getToolsByCategory, TOOLS } from '../../data/tools';
 import { IconRenderer } from './IconRenderer';
 
 interface RelatedToolsProps {
-  toolSlugs: string[];
+  toolSlugs?: string[];
+  category?: string;
+  currentSlug?: string;
   onNavigate: (path: string) => void;
 }
 
-export const RelatedTools: React.FC<RelatedToolsProps> = ({ toolSlugs, onNavigate }) => {
-  const tools = toolSlugs.map(slug => getToolBySlug(slug)).filter(Boolean);
+export const RelatedTools: React.FC<RelatedToolsProps> = ({ toolSlugs = [], category, currentSlug, onNavigate }) => {
+  const tools = useMemo(() => {
+    const safeSlugs = Array.isArray(toolSlugs) ? toolSlugs : [];
+    const directMatches = safeSlugs
+      .map(slug => getToolBySlug(slug))
+      .filter((t): t is NonNullable<typeof t> => Boolean(t) && t?.slug !== currentSlug);
 
-  if (tools.length === 0) return null;
+    if (directMatches.length >= 3) {
+      return directMatches.slice(0, 6);
+    }
+
+    // Fallback: Fill from same category or popular tools
+    const categoryMatches = category
+      ? getToolsByCategory(category as any).filter(t => t.slug !== currentSlug && !safeSlugs.includes(t.slug))
+      : [];
+    
+    const combined = [...directMatches, ...categoryMatches];
+    if (combined.length < 3) {
+      const popular = TOOLS.filter(t => t.slug !== currentSlug && !combined.some(c => c.slug === t.slug));
+      combined.push(...popular);
+    }
+
+    return combined.slice(0, 6);
+  }, [toolSlugs, category, currentSlug]);
+
+  if (!tools || tools.length === 0) return null;
 
   return (
     <section id="related-tools-section" className="mt-12 pt-8 border-t border-slate-200 dark:border-slate-800">

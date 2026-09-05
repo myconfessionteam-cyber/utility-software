@@ -49,17 +49,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (typeof window !== 'undefined') {
       try {
         const saved = localStorage.getItem('toolnova_favorites');
-        return saved ? JSON.parse(saved) : ['word-counter', 'pdf-merge', 'image-compressor', 'json-formatter'];
+        const parsed = saved ? JSON.parse(saved) : null;
+        return Array.isArray(parsed) ? parsed : ['word-counter', 'pdf-merge', 'image-compressor', 'json-formatter'];
       } catch {
-        return [];
+        return ['word-counter', 'pdf-merge', 'image-compressor', 'json-formatter'];
       }
     }
-    return [];
+    return ['word-counter', 'pdf-merge', 'image-compressor', 'json-formatter'];
   });
 
   const toggleFavorite = useCallback((slug: string) => {
     setFavorites(prev => {
-      const next = prev.includes(slug) ? prev.filter(s => s !== slug) : [...prev, slug];
+      const safe = Array.isArray(prev) ? prev : [];
+      const next = safe.includes(slug) ? safe.filter(s => s !== slug) : [...safe, slug];
       try {
         localStorage.setItem('toolnova_favorites', JSON.stringify(next));
       } catch {
@@ -69,24 +71,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   }, []);
 
-  const isFavorite = useCallback((slug: string) => favorites.includes(slug), [favorites]);
+  const isFavorite = useCallback((slug: string) => (Array.isArray(favorites) ? favorites.includes(slug) : false), [favorites]);
 
   // Recently Used
   const [recentTools, setRecentTools] = useState<string[]>(() => {
     if (typeof window !== 'undefined') {
       try {
         const saved = localStorage.getItem('toolnova_recent');
-        return saved ? JSON.parse(saved) : ['word-counter', 'json-formatter', 'percentage-calculator'];
+        const parsed = saved ? JSON.parse(saved) : null;
+        return Array.isArray(parsed) ? parsed : ['word-counter', 'json-formatter', 'percentage-calculator'];
       } catch {
-        return [];
+        return ['word-counter', 'json-formatter', 'percentage-calculator'];
       }
     }
-    return [];
+    return ['word-counter', 'json-formatter', 'percentage-calculator'];
   });
 
   const addRecentTool = useCallback((slug: string) => {
     setRecentTools(prev => {
-      const filtered = prev.filter(s => s !== slug);
+      const safe = Array.isArray(prev) ? prev : [];
+      const filtered = safe.filter(s => s !== slug);
       const next = [slug, ...filtered].slice(0, 8);
       try {
         localStorage.setItem('toolnova_recent', JSON.stringify(next));

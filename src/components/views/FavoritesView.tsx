@@ -12,7 +12,8 @@ interface FavoritesViewProps {
 export const FavoritesView: React.FC<FavoritesViewProps> = ({ onNavigate }) => {
   const { favorites, toggleFavorite, showToast } = useApp();
 
-  const favoriteTools = favorites.map(slug => getToolBySlug(slug)).filter(Boolean);
+  const safeFavorites = Array.isArray(favorites) ? favorites : [];
+  const favoriteTools = safeFavorites.map(slug => getToolBySlug(slug)).filter(Boolean);
 
   return (
     <div id="favorites-page" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">

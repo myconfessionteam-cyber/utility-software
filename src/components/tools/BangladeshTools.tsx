@@ -1,15 +1,264 @@
-import React, { useState, useMemo } from 'react';
-import { Copy, ShieldCheck, CheckCircle2, AlertCircle, RefreshCw, Calculator, Globe } from 'lucide-react';
+import React, { useState, useMemo, useRef } from 'react';
+import { Copy, ShieldCheck, CheckCircle2, AlertCircle, RefreshCw, Calculator, Globe, Languages, MapPin, Briefcase, UserSquare, Upload, Download, Check, HelpCircle } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 
 interface BangladeshToolProps {
   toolSlug: string;
 }
 
+// Phonetic English to Bangla dictionary mapping (Avro style)
+function phoneticEnglishToBangla(text: string): string {
+  if (!text) return '';
+
+  const words = text.split(' ');
+  const wordMap: Record<string, string> = {
+    ami: 'আমি',
+    amra: 'আমরা',
+    tumi: 'তুমি',
+    apni: 'আপনি',
+    kemon: 'কেমন',
+    acho: 'আছো',
+    achen: 'আছেন',
+    bhalo: 'ভালো',
+    bangla: 'বাংলা',
+    bangladesh: 'বাংলাদেশ',
+    dhaka: 'ঢাকা',
+    dhonnobad: 'ধন্যবাদ',
+    shuvo: 'শুভ',
+    shokal: 'সকাল',
+    raat: 'রাত',
+    somoy: 'সময়',
+    desh: 'দেশ',
+    manush: 'মানুষ',
+    bondhu: 'বন্ধু',
+    kaaj: 'কাজ',
+    naam: 'নাম',
+    bari: 'বাড়ি',
+    ki: 'কী',
+    keno: 'কেন',
+    kothay: 'কোথায়',
+    kokhon: 'কখন',
+    haan: 'হ্যাঁ',
+    na: 'না',
+    shundor: 'সুন্দর',
+    notun: 'নতুন',
+  };
+
+  return words
+    .map(w => {
+      const lower = w.toLowerCase();
+      if (wordMap[lower]) {
+        return wordMap[lower];
+      }
+
+      // Basic character by character transliteration fallback
+      let res = '';
+      let i = 0;
+      while (i < w.length) {
+        const sub2 = w.substring(i, i + 2).toLowerCase();
+        const sub3 = w.substring(i, i + 3).toLowerCase();
+        const char = w[i].toLowerCase();
+
+        if (sub3 === 'kkh') { res += 'ক্ষ'; i += 3; }
+        else if (sub2 === 'sh') { res += 'শ'; i += 2; }
+        else if (sub2 === 'ch') { res += 'চ'; i += 2; }
+        else if (sub2 === 'kh') { res += 'খ'; i += 2; }
+        else if (sub2 === 'gh') { res += 'ঘ'; i += 2; }
+        else if (sub2 === 'th') { res += 'থ'; i += 2; }
+        else if (sub2 === 'dh') { res += 'ধ'; i += 2; }
+        else if (sub2 === 'ph') { res += 'ফ'; i += 2; }
+        else if (sub2 === 'bh') { res += 'ভ'; i += 2; }
+        else if (sub2 === 'ng') { res += 'ং'; i += 2; }
+        else if (char === 'k') { res += 'ক'; i++; }
+        else if (char === 'g') { res += 'গ'; i++; }
+        else if (char === 'j') { res += 'জ'; i++; }
+        else if (char === 't') { res += 'ট'; i++; }
+        else if (char === 'd') { res += 'ড'; i++; }
+        else if (char === 'n') { res += 'ন'; i++; }
+        else if (char === 'p') { res += 'প'; i++; }
+        else if (char === 'f') { res += 'ফ'; i++; }
+        else if (char === 'b') { res += 'ব'; i++; }
+        else if (char === 'm') { res += 'ম'; i++; }
+        else if (char === 'r') { res += 'র'; i++; }
+        else if (char === 'l') { res += 'ল'; i++; }
+        else if (char === 's') { res += 'স'; i++; }
+        else if (char === 'h') { res += 'হ'; i++; }
+        else if (char === 'a') { res += res.length === 0 ? 'আ' : 'া'; i++; }
+        else if (char === 'i') { res += res.length === 0 ? 'ই' : 'ি'; i++; }
+        else if (char === 'u') { res += res.length === 0 ? 'উ' : 'ু'; i++; }
+        else if (char === 'e') { res += res.length === 0 ? 'এ' : 'ে'; i++; }
+        else if (char === 'o') { res += res.length === 0 ? 'ও' : 'ো'; i++; }
+        else { res += w[i]; i++; }
+      }
+      return res;
+    })
+    .join(' ');
+}
+
 export const BangladeshTools: React.FC<BangladeshToolProps> = ({ toolSlug }) => {
   const { showToast, trackEvent } = useApp();
 
-  // ==================== 1. NID VALIDATOR & PARSER ====================
+  // ==================== 1. BANGLA ENGLISH TYPING ====================
+  const [typingInput, setTypingInput] = useState<string>('ami banglay gan gai, bangladesh amar desh');
+  const [copiedBangla, setCopiedBangla] = useState(false);
+
+  const convertedBanglaText = useMemo(() => {
+    return phoneticEnglishToBangla(typingInput);
+  }, [typingInput]);
+
+  const copyBangla = () => {
+    if (!convertedBanglaText) return;
+    navigator.clipboard.writeText(convertedBanglaText);
+    setCopiedBangla(true);
+    showToast('Bangla text copied to clipboard!');
+    setTimeout(() => setCopiedBangla(false), 2000);
+  };
+
+  // ==================== 2. BANGLADESH LAND CONVERTER ====================
+  const [landValue, setLandValue] = useState<number>(1);
+  const [landUnit, setLandUnit] = useState<string>('shotok');
+
+  // Survey base formulas: 1 shotok (shotaongsho / decimal) = 435.6 sq ft
+  const landConversions = useMemo(() => {
+    const val = Math.max(0, landValue);
+    let totalSqFt = 0;
+
+    switch (landUnit) {
+      case 'shotok': totalSqFt = val * 435.6; break;
+      case 'katha': totalSqFt = val * 720; break;
+      case 'bigha': totalSqFt = val * 14400; break;
+      case 'acre': totalSqFt = val * 43560; break;
+      case 'chotak': totalSqFt = val * 45; break;
+      case 'sqft': totalSqFt = val; break;
+      case 'sqm': totalSqFt = val * 10.7639; break;
+      default: totalSqFt = val * 435.6;
+    }
+
+    return {
+      shotok: (totalSqFt / 435.6).toFixed(4),
+      katha: (totalSqFt / 720).toFixed(4),
+      bigha: (totalSqFt / 14400).toFixed(4),
+      acre: (totalSqFt / 43560).toFixed(4),
+      chotak: (totalSqFt / 45).toFixed(2),
+      sqft: totalSqFt.toFixed(2),
+      sqm: (totalSqFt / 10.7639).toFixed(2),
+      hectare: (totalSqFt / 107639).toFixed(4),
+    };
+  }, [landValue, landUnit]);
+
+  // ==================== 3. BANGLADESH GOVT JOB AGE CALCULATOR ====================
+  const [candidateDob, setCandidateDob] = useState<string>('1997-06-15');
+  const [circularDate, setCircularDate] = useState<string>(() => {
+    const d = new Date();
+    d.setDate(1); // 1st of current month
+    return d.toISOString().slice(0, 10);
+  });
+  const [quotaType, setQuotaType] = useState<'general' | 'freedom_fighter' | 'departmental'>('general');
+
+  const govtJobAge = useMemo(() => {
+    if (!candidateDob || !circularDate) return null;
+    const birth = new Date(candidateDob);
+    const circular = new Date(circularDate);
+
+    if (birth > circular) return { eligible: false, error: 'Date of birth cannot be after circular date' };
+
+    let y = circular.getFullYear() - birth.getFullYear();
+    let m = circular.getMonth() - birth.getMonth();
+    let d = circular.getDate() - birth.getDate();
+
+    if (d < 0) {
+      m--;
+      const prevMonth = new Date(circular.getFullYear(), circular.getMonth(), 0);
+      d += prevMonth.getDate();
+    }
+    if (m < 0) {
+      y--;
+      m += 12;
+    }
+
+    const maxAge = quotaType === 'general' ? 30 : quotaType === 'freedom_fighter' ? 32 : 35;
+    const eligible = y < maxAge || (y === maxAge && m === 0 && d === 0);
+
+    return {
+      years: y,
+      months: m,
+      days: d,
+      maxAge,
+      eligible,
+    };
+  }, [candidateDob, circularDate, quotaType]);
+
+  // ==================== 4. PASSPORT & NID PHOTO RESIZER ====================
+  const [selectedPreset, setSelectedPreset] = useState<'photo300' | 'signature300' | 'passport55' | 'nid300'>('photo300');
+  const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+  const [resizedImageUrl, setResizedImageUrl] = useState<string | null>(null);
+  const [fileSizeKb, setFileSizeKb] = useState<number>(0);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  const presets = {
+    photo300: { name: 'BD Job / Teletalk Photo', width: 300, height: 300, maxKb: 100 },
+    signature300: { name: 'BD Job Signature', width: 300, height: 80, maxKb: 60 },
+    passport55: { name: 'Bangladesh E-Passport (55x45mm)', width: 650, height: 531, maxKb: 300 },
+    nid300: { name: 'Smart NID Photo', width: 300, height: 300, maxKb: 100 },
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = evt => {
+      const imgData = evt.target?.result as string;
+      setUploadedImage(imgData);
+      processImage(imgData, selectedPreset);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const processImage = (imgSrc: string, presetKey: keyof typeof presets) => {
+    const target = presets[presetKey];
+    const img = new Image();
+    img.src = imgSrc;
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = target.width;
+      canvas.height = target.height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      // Draw and scale to fit
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, target.width, target.height);
+
+      // Center crop or fit
+      const scale = Math.max(target.width / img.width, target.height / img.height);
+      const x = (target.width - img.width * scale) / 2;
+      const y = (target.height - img.height * scale) / 2;
+
+      ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+
+      // Compress to JPEG
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+      setResizedImageUrl(dataUrl);
+
+      // Estimate file size in KB
+      const head = 'data:image/jpeg;base64,';
+      const sizeBytes = Math.round((dataUrl.length - head.length) * 3 / 4);
+      setFileSizeKb(Math.round(sizeBytes / 1024));
+      showToast(`Image resized to ${target.width}x${target.height}px`);
+    };
+  };
+
+  const downloadResizedImage = () => {
+    if (!resizedImageUrl) return;
+    const a = document.createElement('a');
+    a.href = resizedImageUrl;
+    a.download = `bd-${selectedPreset}-resized.jpg`;
+    a.click();
+    showToast('Photo downloaded successfully!');
+  };
+
+  // ==================== 5. NID VALIDATOR & PARSER ====================
   const [nidInput, setNidInput] = useState<string>('19942692512345678');
 
   const nidDetails = useMemo(() => {
@@ -52,368 +301,327 @@ export const BangladeshTools: React.FC<BangladeshToolProps> = ({ toolSlug }) => 
     }
   }, [nidInput]);
 
-  // ==================== 2. BANGLA DATE CONVERTER ====================
-  const [gregorianDate, setGregorianDate] = useState<string>(new Date().toISOString().slice(0, 10));
-
-  const banglaDate = useMemo(() => {
-    const d = new Date(gregorianDate);
-    if (isNaN(d.getTime())) return null;
-
-    const day = d.getDate();
-    const month = d.getMonth() + 1; // 1-12
-    const year = d.getFullYear();
-
-    // Bengali months in revised Bangladesh calendar (Pohela Boishakh on April 14)
-    // Boishakh to Ashwin (first 6 months) have 31 days
-    // Kartik to Magh (next 4 months) have 30 days
-    // Falgun has 29 or 30 days (leap year)
-    // Choitro has 30 days
-    const banglaMonths = [
-      'বৈশাখ (Boishakh)',
-      'জ্যৈষ্ঠ (Joishtho)',
-      'আষাঢ় (Asharh)',
-      'শ্রাবণ (Shrabon)',
-      'ভাদ্র (Bhadro)',
-      'আশ্বিন (Ashwin)',
-      'কার্তিক (Kartik)',
-      'অগ্রহায়ণ (Agrahayan)',
-      'পৌষ (Poush)',
-      'মাঘ (Magh)',
-      'ফাল্গুন (Falgun)',
-      'চৈত্র (Choitro)',
-    ];
-
-    const seasons = ['গ্রীষ্ম (Summer)', 'বর্ষা (Monsoon)', 'শরৎ (Autumn)', 'হেমন্ত (Late Autumn)', 'শীত (Winter)', 'বসন্ত (Spring)'];
-
-    // Approximate calculation from April 14 (Day 1 of Boishakh)
-    const isLeapYear = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
-    const april14 = new Date(year, 3, 14);
-
-    let bYear = year - 593;
-    let bMonthIndex = 0;
-    let bDay = 1;
-
-    if (d < april14) {
-      bYear -= 1;
-    }
-
-    // Days since April 14 of current Bangla year
-    const startOfBanglaYear = d >= april14 ? april14 : new Date(year - 1, 3, 14);
-    const dayDiff = Math.floor((d.getTime() - startOfBanglaYear.getTime()) / (1000 * 60 * 60 * 24));
-
-    const monthLengths = [31, 31, 31, 31, 31, 31, 30, 30, 30, 30, isLeapYear ? 30 : 29, 30];
-    let accum = 0;
-
-    for (let i = 0; i < 12; i++) {
-      if (dayDiff < accum + monthLengths[i]) {
-        bMonthIndex = i;
-        bDay = dayDiff - accum + 1;
-        break;
-      }
-      accum += monthLengths[i];
-    }
-
-    const enToBnDigits = (num: number | string) => {
-      const bnDigits = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
-      return num.toString().replace(/\d/g, d => bnDigits[parseInt(d)]);
-    };
-
-    return {
-      banglaYear: enToBnDigits(bYear),
-      banglaDay: enToBnDigits(bDay),
-      banglaMonth: banglaMonths[bMonthIndex],
-      season: seasons[Math.floor(bMonthIndex / 2)],
-      formattedBangla: `${enToBnDigits(bDay)} ${banglaMonths[bMonthIndex].split(' ')[0]}, ${enToBnDigits(bYear)} বঙ্গাব্দ`,
-    };
-  }, [gregorianDate]);
-
-  // ==================== 3. BANGLA NUMBER & WORDS CONVERTER ====================
-  const [numInput, setNumInput] = useState<string>('১২৩৪৫৬৭৮৯০');
-
-  const convertedNumbers = useMemo(() => {
-    const bnDigits = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
-    const enDigits = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
-
-    let toEnglish = '';
-    for (const char of numInput) {
-      const idx = bnDigits.indexOf(char);
-      if (idx !== -1) toEnglish += enDigits[idx];
-      else toEnglish += char;
-    }
-
-    let toBangla = '';
-    for (const char of toEnglish) {
-      const idx = enDigits.indexOf(char);
-      if (idx !== -1) toBangla += bnDigits[idx];
-      else toBangla += char;
-    }
-
-    return {
-      toEnglish,
-      toBangla,
-    };
-  }, [numInput]);
-
-  // ==================== 4. BD TAX CALCULATOR ====================
-  const [annualSalary, setAnnualSalary] = useState<number>(600000);
-  const [genderCategory, setGenderCategory] = useState<'male' | 'female' | 'senior'>('male');
-
-  const taxStats = useMemo(() => {
-    const gross = annualSalary;
-    // BD Tax Exempt Limits
-    const exemptionLimit = genderCategory === 'male' ? 350000 : 400000;
-    let taxable = Math.max(0, gross - exemptionLimit);
-    let totalTax = 0;
-
-    // Slabs:
-    // 1st 100,000 at 5%
-    // Next 300,000 at 10%
-    // Next 400,000 at 15%
-    // Next 500,000 at 20%
-    // Remaining at 25%
-
-    const slabs = [
-      { cap: 100000, rate: 0.05 },
-      { cap: 300000, rate: 0.10 },
-      { cap: 400000, rate: 0.15 },
-      { cap: 500000, rate: 0.20 },
-      { cap: Infinity, rate: 0.25 },
-    ];
-
-    let rem = taxable;
-    for (const slab of slabs) {
-      if (rem <= 0) break;
-      const take = Math.min(rem, slab.cap);
-      totalTax += take * slab.rate;
-      rem -= take;
-    }
-
-    // Min tax for Dhaka/Chittagong City Corp if taxable > 0 is 5,000 BDT
-    if (taxable > 0 && totalTax < 5000) {
-      totalTax = 5000;
-    }
-
-    const netAnnual = gross - totalTax;
-    const monthlyNet = netAnnual / 12;
-
-    return {
-      gross,
-      exemptionLimit,
-      taxable,
-      totalTax,
-      netAnnual,
-      monthlyNet: monthlyNet.toFixed(0),
-      effectiveRate: gross > 0 ? ((totalTax / gross) * 100).toFixed(1) : '0',
-    };
-  }, [annualSalary, genderCategory]);
-
   return (
-    <div id="bangladesh-tool-container" className="space-y-6">
-      {/* 1. NID VALIDATOR & PARSER */}
-      {toolSlug === 'bd-nid-validator' && (
-        <div className="space-y-5 max-w-xl mx-auto">
-          <div className="p-5 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 space-y-3">
-            <label className="text-xs font-bold uppercase tracking-wider text-neutral-500 block">
-              Enter Bangladeshi National ID (NID) Number
-            </label>
-            <input
-              type="text"
-              value={nidInput}
-              onChange={e => setNidInput(e.target.value)}
-              placeholder="e.g. 19902692512345678 or 10-digit Smart Card ID"
-              className="w-full p-3 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-base font-mono font-bold"
-            />
-            <p className="text-xs text-neutral-400">
-              Supports 10-digit Smart Cards, 13-digit legacy cards, and 17-digit official format.
-            </p>
+    <div id="bangladesh-tools-container" className="space-y-6">
+      {/* 1. BANGLA ENGLISH TYPING */}
+      {(toolSlug === 'bangla-english-typing' || !toolSlug) && (
+        <div className="space-y-6 max-w-4xl mx-auto">
+          <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-300 flex items-center justify-between">
+            <span className="flex items-center gap-2 font-medium">
+              <Languages className="w-4 h-4 text-emerald-600" />
+              <strong>Phonetic English to Bangla (Avro style):</strong> Type English pronunciation to write natural Bengali Unicode text.
+            </span>
           </div>
 
-          {nidDetails.valid ? (
-            <div className="p-5 rounded-2xl border border-emerald-200 dark:border-emerald-900 bg-emerald-50/50 dark:bg-emerald-950/40 space-y-3">
-              <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-300 font-bold text-sm">
-                <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                <span>Format Verified: {nidDetails.type}</span>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                <div className="p-3 rounded-xl bg-white dark:bg-neutral-900 border border-emerald-100 dark:border-emerald-800">
-                  <span className="text-neutral-400 block mb-0.5">Birth Year:</span>
-                  <span className="font-bold text-neutral-900 dark:text-white">{nidDetails.birthYear}</span>
-                </div>
-                <div className="p-3 rounded-xl bg-white dark:bg-neutral-900 border border-emerald-100 dark:border-emerald-800">
-                  <span className="text-neutral-400 block mb-0.5">Regional District:</span>
-                  <span className="font-bold text-neutral-900 dark:text-white">{nidDetails.district}</span>
-                </div>
-              </div>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400 pt-1">
-                {nidDetails.notes}
-              </p>
-            </div>
-          ) : (
-            <div className="p-4 rounded-xl border border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/40 text-xs text-rose-700 dark:text-rose-300 font-medium">
-              {nidDetails.error}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* 2. BANGLA DATE CONVERTER */}
-      {toolSlug === 'bangla-date-converter' && (
-        <div className="space-y-6 max-w-lg mx-auto">
-          <div className="p-5 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 space-y-3">
-            <label className="text-xs font-bold uppercase tracking-wider text-neutral-500 block">
-              Choose Gregorian (English) Date
-            </label>
-            <input
-              type="date"
-              value={gregorianDate}
-              onChange={e => setGregorianDate(e.target.value)}
-              className="w-full p-3 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-base font-bold"
-            />
-          </div>
-
-          {banglaDate && (
-            <div className="p-6 rounded-2xl border border-indigo-200 dark:border-indigo-900 bg-indigo-50/60 dark:bg-indigo-950/40 text-center space-y-3">
-              <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
-                Official Bengali Calendar (বঙ্গাব্দ)
-              </span>
-              <p className="text-2xl sm:text-3xl font-black text-neutral-900 dark:text-white">
-                {banglaDate.formattedBangla}
-              </p>
-              <div className="flex justify-center gap-4 text-xs font-semibold text-neutral-600 dark:text-neutral-300 pt-2 border-t border-indigo-100 dark:border-indigo-900/60">
-                <span>ঋতু: {banglaDate.season}</span>
-                <span>বছর: {banglaDate.banglaYear} বঙ্গাব্দ</span>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* 3. BANGLA NUMBER CONVERTER */}
-      {toolSlug === 'bangla-number-converter' && (
-        <div className="space-y-5 max-w-xl mx-auto">
-          <div className="p-5 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 space-y-3">
-            <label className="text-xs font-bold uppercase tracking-wider text-neutral-500 block">
-              Type or Paste Numbers (Bangla or English)
-            </label>
-            <input
-              type="text"
-              value={numInput}
-              onChange={e => setNumInput(e.target.value)}
-              placeholder="e.g. ১২৩৪৫ or 12345"
-              className="w-full p-3 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-lg font-bold"
-            />
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="p-4 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 space-y-2">
-              <div className="flex items-center justify-between text-xs font-bold uppercase text-neutral-500">
-                <span>English Numbers (Western)</span>
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(convertedNumbers.toEnglish);
-                    showToast('Copied English digits!');
-                  }}
-                  className="hover:text-indigo-600"
-                >
-                  <Copy className="w-3.5 h-3.5" />
-                </button>
-              </div>
-              <p className="text-xl font-bold font-mono text-neutral-900 dark:text-white">
-                {convertedNumbers.toEnglish}
-              </p>
-            </div>
-
-            <div className="p-4 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 space-y-2">
-              <div className="flex items-center justify-between text-xs font-bold uppercase text-neutral-500">
-                <span>Bangla Numbers (বাংলা)</span>
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(convertedNumbers.toBangla);
-                    showToast('Copied Bangla digits!');
-                  }}
-                  className="hover:text-indigo-600"
-                >
-                  <Copy className="w-3.5 h-3.5" />
-                </button>
-              </div>
-              <p className="text-xl font-bold text-neutral-900 dark:text-white">
-                {convertedNumbers.toBangla}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 4. BD TAX CALCULATOR */}
-      {toolSlug === 'bd-tax-calculator' && (
-        <div className="space-y-6 max-w-xl mx-auto">
-          <div className="p-5 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 space-y-4">
-            <div>
-              <label className="text-xs font-bold uppercase tracking-wider text-neutral-500 block mb-1">
-                Annual Gross Income (৳ BDT)
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
+                Type Phonetic English
               </label>
-              <input
-                type="number"
-                value={annualSalary}
-                onChange={e => setAnnualSalary(Math.max(0, parseFloat(e.target.value) || 0))}
-                className="w-full p-3 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-lg font-bold"
+              <textarea
+                rows={6}
+                value={typingInput}
+                onChange={e => setTypingInput(e.target.value)}
+                placeholder="Type here e.g.: ami banglay gan gai..."
+                className="w-full p-4 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-sm font-medium shadow-xs"
               />
+              <div className="flex gap-2 flex-wrap">
+                {['dhaka', 'bangladesh', 'kemon acho', 'dhonnobad', 'shuvo shokal'].map(ph => (
+                  <button
+                    key={ph}
+                    onClick={() => setTypingInput(prev => (prev ? `${prev} ${ph}` : ph))}
+                    className="px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-[11px] font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-200"
+                  >
+                    +{ph}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
+                  Bangla Unicode Output (বাংলা)
+                </label>
+                <button
+                  onClick={copyBangla}
+                  className="flex items-center gap-1 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-emerald-600"
+                >
+                  {copiedBangla ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedBangla ? 'Copied' : 'Copy Bangla'}</span>
+                </button>
+              </div>
+              <div className="p-4 rounded-xl border border-emerald-200 dark:border-emerald-800/80 bg-emerald-50/40 dark:bg-emerald-950/20 text-slate-900 dark:text-white text-base min-h-[160px] font-normal leading-relaxed whitespace-pre-wrap">
+                {convertedBanglaText || <span className="text-slate-400 italic">বাংলা লেখা এখানে প্রদর্শিত হবে...</span>}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 2. BANGLADESH LAND CONVERTER */}
+      {toolSlug === 'bangladesh-land-converter' && (
+        <div className="space-y-6 max-w-4xl mx-auto">
+          <div className="p-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-4 shadow-xs">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-emerald-600" /> বাংলাদেশ জমি পরিমাপ কনভার্টার (শতাংশ, কাঠা, বিঘা, একর)
+            </h3>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-bold text-slate-500 block mb-1">Enter Quantity</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={landValue}
+                  onChange={e => setLandValue(parseFloat(e.target.value) || 0)}
+                  className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-bold text-base"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-500 block mb-1">Select Measurement Unit</label>
+                <select
+                  value={landUnit}
+                  onChange={e => setLandUnit(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 font-semibold text-sm"
+                >
+                  <option value="shotok">শতাংশ / শতক / ডেসিমেল (Decimal)</option>
+                  <option value="katha">কাঠা (Katha)</option>
+                  <option value="bigha">বিঘা (Bigha)</option>
+                  <option value="acre">একর (Acre)</option>
+                  <option value="chotak">ছটাক (Chotak)</option>
+                  <option value="sqft">বর্গফুট (Square Feet)</option>
+                  <option value="sqm">বর্গমিটার (Square Meter)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+            <div className="p-4 rounded-xl border border-emerald-200 dark:border-emerald-900 bg-emerald-50/50 dark:bg-emerald-950/30 text-center">
+              <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 block">শতাংশ / শতক</span>
+              <p className="text-2xl font-extrabold text-slate-900 dark:text-white mt-1">{landConversions.shotok}</p>
+            </div>
+            <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-center">
+              <span className="text-xs font-bold text-slate-500 block">কাঠা</span>
+              <p className="text-2xl font-extrabold text-slate-900 dark:text-white mt-1">{landConversions.katha}</p>
+            </div>
+            <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-center">
+              <span className="text-xs font-bold text-slate-500 block">বিঘা</span>
+              <p className="text-2xl font-extrabold text-slate-900 dark:text-white mt-1">{landConversions.bigha}</p>
+            </div>
+            <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-center">
+              <span className="text-xs font-bold text-slate-500 block">একর</span>
+              <p className="text-2xl font-extrabold text-slate-900 dark:text-white mt-1">{landConversions.acre}</p>
+            </div>
+            <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-center">
+              <span className="text-xs font-bold text-slate-500 block">ছটাক</span>
+              <p className="text-xl font-bold text-slate-900 dark:text-white mt-1">{landConversions.chotak}</p>
+            </div>
+            <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-center">
+              <span className="text-xs font-bold text-slate-500 block">বর্গফুট (Sq Ft)</span>
+              <p className="text-xl font-bold text-slate-900 dark:text-white mt-1">{landConversions.sqft}</p>
+            </div>
+            <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-center">
+              <span className="text-xs font-bold text-slate-500 block">বর্গমিটার (Sq M)</span>
+              <p className="text-xl font-bold text-slate-900 dark:text-white mt-1">{landConversions.sqm}</p>
+            </div>
+            <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-center">
+              <span className="text-xs font-bold text-slate-500 block">হেক্টর (Hectare)</span>
+              <p className="text-xl font-bold text-slate-900 dark:text-white mt-1">{landConversions.hectare}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 3. BANGLADESH GOVT JOB AGE CALCULATOR */}
+      {toolSlug === 'bangladesh-age-calculator' && (
+        <div className="space-y-6 max-w-3xl mx-auto">
+          <div className="p-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-4 shadow-xs">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2">
+              <Briefcase className="w-4 h-4 text-emerald-600" /> সরকারি চাকরির নিয়োগ বিজ্ঞপ্তির বয়স গণনা ও যোগ্যতা
+            </h3>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-bold text-slate-500 block mb-1">প্রার্থীর জন্ম তারিখ (Date of Birth)</label>
+                <input
+                  type="date"
+                  value={candidateDob}
+                  onChange={e => setCandidateDob(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-semibold text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-500 block mb-1">বিজ্ঞপ্তিতে উল্লেখিত কাটঅফ তারিখ (Cutoff Date)</label>
+                <input
+                  type="date"
+                  value={circularDate}
+                  onChange={e => setCircularDate(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-semibold text-sm"
+                />
+              </div>
             </div>
 
             <div>
-              <label className="text-xs font-bold uppercase tracking-wider text-neutral-500 block mb-1">
-                Taxpayer Category
-              </label>
-              <div className="grid grid-cols-3 gap-2">
+              <label className="text-xs font-bold text-slate-500 block mb-1.5">কোটা ও প্রার্থী ক্যাটাগরি (Quota)</label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 {[
-                  { id: 'male', label: 'General / Male (3.5L Limit)' },
-                  { id: 'female', label: 'Female (4.0L Limit)' },
-                  { id: 'senior', label: 'Senior Citizen (65+)' },
-                ].map(cat => (
+                  { id: 'general', label: 'সাধারণ প্রার্থী (সর্বোচ্চ ৩০ বছর)' },
+                  { id: 'freedom_fighter', label: 'মুক্তিযোদ্ধা / প্রতিবন্ধী (৩২ বছর)' },
+                  { id: 'departmental', label: 'বিভাগীয় প্রার্থী (৩৫ বছর)' },
+                ].map(q => (
                   <button
-                    key={cat.id}
-                    onClick={() => setGenderCategory(cat.id as any)}
-                    className={`p-2.5 rounded-xl border text-xs font-semibold text-center transition ${
-                      genderCategory === cat.id
-                        ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300'
-                        : 'border-neutral-200 dark:border-neutral-700'
+                    key={q.id}
+                    onClick={() => setQuotaType(q.id as any)}
+                    className={`p-2.5 rounded-xl border text-xs font-semibold transition text-left ${
+                      quotaType === q.id
+                        ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
+                        : 'border-slate-200 dark:border-slate-700'
                     }`}
                   >
-                    {cat.label}
+                    {q.label}
                   </button>
                 ))}
               </div>
             </div>
           </div>
 
-          <div className="space-y-3">
-            <div className="p-6 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-900 text-center">
-              <span className="text-xs uppercase font-bold text-indigo-700 dark:text-indigo-300">
-                Total Annual Tax Payable (NBR Slabs)
-              </span>
-              <p className="text-4xl font-extrabold text-indigo-600 dark:text-indigo-400 mt-1">
-                ৳ {taxStats.totalTax.toLocaleString()}
-              </p>
-              <span className="text-xs text-neutral-500 block mt-1">
-                Effective Tax Rate: {taxStats.effectiveRate}%
-              </span>
+          {govtJobAge && (
+            <div className="space-y-4">
+              <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center shadow-xs">
+                <span className="text-xs uppercase font-bold text-slate-400">নির্ধারিত তারিখে প্রার্থীর বয়স</span>
+                <p className="text-4xl font-extrabold text-slate-900 dark:text-white mt-1">
+                  {govtJobAge.years} বছর, {govtJobAge.months} মাস, {govtJobAge.days} দিন
+                </p>
+
+                <div className="mt-4">
+                  {govtJobAge.eligible ? (
+                    <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                      <CheckCircle2 className="w-4 h-4" /> আবেদনযোগ্য (Eligible for this post)
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-bold bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800">
+                      <AlertCircle className="w-4 h-4" /> বয়স উত্তীর্ণ (Age Limit Exceeded for {govtJobAge.maxAge} years)
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 4. PASSPORT & NID PHOTO RESIZER */}
+      {toolSlug === 'passport-photo-resizer' && (
+        <div className="space-y-6 max-w-4xl mx-auto">
+          <div className="p-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-4 shadow-xs">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2">
+              <UserSquare className="w-4 h-4 text-emerald-600" /> সরকারি চাকরি, পাসপোর্ট ও NID ছবি রিসাইজার
+            </h3>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {Object.entries(presets).map(([key, val]) => (
+                <button
+                  key={key}
+                  onClick={() => {
+                    setSelectedPreset(key as any);
+                    if (uploadedImage) processImage(uploadedImage, key as any);
+                  }}
+                  className={`p-3 rounded-xl border text-xs font-semibold text-center transition ${
+                    selectedPreset === key
+                      ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
+                      : 'border-slate-200 dark:border-slate-700'
+                  }`}
+                >
+                  <span className="block font-bold">{val.name}</span>
+                  <span className="text-[11px] text-slate-400 mt-0.5 block">{val.width}x{val.height}px (&lt;{val.maxKb}KB)</span>
+                </button>
+              ))}
             </div>
 
-            <div className="grid grid-cols-2 gap-3 text-center text-xs">
-              <div className="p-4 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
-                <span className="text-neutral-400 block">Exempted Amount</span>
-                <span className="text-base font-bold text-neutral-900 dark:text-white mt-1 block">
-                  ৳ {taxStats.exemptionLimit.toLocaleString()}
+            <div className="p-8 border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-2xl text-center bg-slate-50/50 dark:bg-slate-800/30">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                id="photo-upload-input"
+                className="hidden"
+              />
+              <label
+                htmlFor="photo-upload-input"
+                className="cursor-pointer inline-flex flex-col items-center gap-2"
+              >
+                <div className="p-3 bg-white dark:bg-slate-800 rounded-full shadow-xs">
+                  <Upload className="w-6 h-6 text-emerald-600" />
+                </div>
+                <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                  Click to choose a photo or signature
                 </span>
-              </div>
-              <div className="p-4 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
-                <span className="text-neutral-400 block">Net Monthly In-Hand</span>
-                <span className="text-base font-bold text-emerald-600 dark:text-emerald-400 mt-1 block">
-                  ৳ {parseInt(taxStats.monthlyNet).toLocaleString()}
-                </span>
-              </div>
+                <span className="text-xs text-slate-400">Supports JPG, PNG, WebP</span>
+              </label>
             </div>
           </div>
+
+          {resizedImageUrl && (
+            <div className="p-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col sm:flex-row items-center justify-between gap-6 shadow-xs">
+              <div className="flex items-center gap-4">
+                <img
+                  src={resizedImageUrl}
+                  alt="Resized output"
+                  className="max-h-32 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xs"
+                />
+                <div>
+                  <span className="text-xs font-bold text-emerald-600 uppercase">Ready For Download</span>
+                  <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100 mt-0.5">
+                    {presets[selectedPreset].width} x {presets[selectedPreset].height} px
+                  </h4>
+                  <span className="text-xs text-slate-500">File size: approx {fileSizeKb} KB</span>
+                </div>
+              </div>
+
+              <button
+                onClick={downloadResizedImage}
+                className="flex items-center gap-2 px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition"
+              >
+                <Download className="w-4 h-4" /> Download Resized Photo
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 5. NID VALIDATOR & PARSER */}
+      {toolSlug === 'bd-nid-validator' && (
+        <div className="space-y-6 max-w-2xl mx-auto">
+          <div className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-4 shadow-xs">
+            <div>
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-1">
+                Enter National ID Number (NID)
+              </label>
+              <input
+                type="text"
+                value={nidInput}
+                onChange={e => setNidInput(e.target.value)}
+                placeholder="10, 13, or 17 digit NID number"
+                className="w-full p-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-base font-bold tracking-wider"
+              />
+            </div>
+          </div>
+
+          {nidDetails && (
+            <div className="p-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-3 shadow-xs">
+              <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100">
+                {nidDetails.valid ? nidDetails.type : 'NID Validation Notice'}
+              </h4>
+              <p className="text-xs text-slate-600 dark:text-slate-300">
+                {nidDetails.valid ? nidDetails.notes : nidDetails.error}
+              </p>
+            </div>
+          )}
         </div>
       )}
     </div>
