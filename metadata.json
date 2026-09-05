@@ -1,0 +1,6 @@
+{
+  "name": "ToolNova - All-in-One Online Utility Tools Hub",
+  "description": "Fast, free, private online tools for PDF, image manipulation, text processing, developer utilities, calculators, converters, and Bangladesh tools without sign-up.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
