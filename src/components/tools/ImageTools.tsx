@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Upload, Download, RefreshCw, Sliders, ShieldCheck, Check, Copy, Palette, Eye } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { formatFileSize, FileSize, FileSizeComparison } from '../common/FileSize';
 
 interface ImageToolProps {
   toolSlug: string;
@@ -247,12 +248,6 @@ export const ImageTools: React.FC<ImageToolProps> = ({ toolSlug }) => {
     img.src = imageSrc;
   };
 
-  const formatBytes = (bytes: number) => {
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
-  };
-
   return (
     <div id="image-tool-container" className="space-y-6">
       {/* Privacy Guarantee */}
@@ -309,7 +304,7 @@ export const ImageTools: React.FC<ImageToolProps> = ({ toolSlug }) => {
               </div>
               <div className="w-full flex items-center justify-between text-xs text-neutral-500 mt-3 pt-2 border-t border-neutral-200 dark:border-neutral-800">
                 <span>Original: {imageMeta.width} x {imageMeta.height} px</span>
-                <span>Size: {formatBytes(imageMeta.size)}</span>
+                <span>Size: <FileSize bytes={imageMeta.size} className="font-semibold text-neutral-700 dark:text-neutral-300" /></span>
               </div>
             </div>
 
@@ -346,15 +341,15 @@ export const ImageTools: React.FC<ImageToolProps> = ({ toolSlug }) => {
                       <div>
                         <span className="text-xs text-neutral-500 block">Estimated Result</span>
                         <p className="text-base font-extrabold text-neutral-900 dark:text-white mt-0.5">
-                          {formatBytes(compressedBlob.size)}
+                          <FileSize bytes={compressedBlob.size} />
                         </p>
                       </div>
                       <div className="text-right">
                         <span className="text-xs text-emerald-600 dark:text-emerald-400 font-bold block">
                           Saved {compressedBlob.saved}%
                         </span>
-                        <span className="text-[11px] text-neutral-400">
-                          -{formatBytes(imageMeta.size - compressedBlob.size)}
+                        <span className="text-[11px] text-neutral-500 flex items-center justify-end gap-1">
+                          -<FileSize bytes={imageMeta.size - compressedBlob.size} />
                         </span>
                       </div>
                     </div>

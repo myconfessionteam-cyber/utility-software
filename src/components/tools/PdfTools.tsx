@@ -18,6 +18,7 @@ import {
   SlidersHorizontal,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { formatFileSize, FileSize, FileSizeComparison } from '../common/FileSize';
 
 interface PdfToolProps {
   toolSlug: string;
@@ -90,12 +91,6 @@ export const PdfTools: React.FC<PdfToolProps> = ({ toolSlug }) => {
     next[index] = next[targetIdx];
     next[targetIdx] = temp;
     setFiles(next);
-  };
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
   };
 
   // 1. Merge PDFs
@@ -556,7 +551,7 @@ export const PdfTools: React.FC<PdfToolProps> = ({ toolSlug }) => {
                     <p className="text-sm font-semibold text-neutral-900 dark:text-white truncate">
                       {item.file.name}
                     </p>
-                    <span className="text-xs text-neutral-400">{formatFileSize(item.size)}</span>
+                    <FileSize bytes={item.size} className="text-xs text-neutral-400" />
                   </div>
                 </div>
 
@@ -861,10 +856,11 @@ export const PdfTools: React.FC<PdfToolProps> = ({ toolSlug }) => {
                 <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                 <h4 className="text-sm font-bold text-neutral-900 dark:text-white">Compression Completed!</h4>
               </div>
-              <p className="text-xs text-neutral-600 dark:text-neutral-300 mt-1">
-                Original: <span className="font-semibold text-neutral-900 dark:text-white">{formatFileSize(compressedResult.originalSize)}</span>
-                {' '}→ Compressed:{' '}
-                <span className="font-semibold text-indigo-600 dark:text-indigo-400">{formatFileSize(compressedResult.newSize)}</span>
+              <p className="text-xs text-neutral-600 dark:text-neutral-300 mt-1 flex items-center gap-1.5 flex-wrap">
+                <span>Original:</span>
+                <FileSize bytes={compressedResult.originalSize} className="font-semibold text-neutral-900 dark:text-white" />
+                <span>→ Compressed:</span>
+                <FileSize bytes={compressedResult.newSize} className="font-semibold text-indigo-600 dark:text-indigo-400" />
               </p>
             </div>
 
@@ -872,7 +868,7 @@ export const PdfTools: React.FC<PdfToolProps> = ({ toolSlug }) => {
               {compressedResult.newSize < compressedResult.originalSize ? (
                 <div className="px-3.5 py-1.5 rounded-xl bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-xs font-extrabold flex items-center gap-1.5">
                   <span className="text-sm">-{compressedResult.percent}%</span>
-                  <span>({formatFileSize(compressedResult.originalSize - compressedResult.newSize)} saved)</span>
+                  <span>(<FileSize bytes={compressedResult.originalSize - compressedResult.newSize} /> saved)</span>
                 </div>
               ) : (
                 <div className="px-3 py-1.5 rounded-xl bg-amber-100 dark:bg-amber-950/80 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 text-xs font-bold">

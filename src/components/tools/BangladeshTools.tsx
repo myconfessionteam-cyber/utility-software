@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { Copy, ShieldCheck, CheckCircle2, AlertCircle, RefreshCw, Calculator, Globe, Languages, MapPin, Briefcase, UserSquare, Upload, Download, Check, HelpCircle } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { FileSize } from '../common/FileSize';
 
 interface BangladeshToolProps {
   toolSlug: string;
@@ -192,7 +193,7 @@ export const BangladeshTools: React.FC<BangladeshToolProps> = ({ toolSlug }) => 
   const [selectedPreset, setSelectedPreset] = useState<'photo300' | 'signature300' | 'passport55' | 'nid300'>('photo300');
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [resizedImageUrl, setResizedImageUrl] = useState<string | null>(null);
-  const [fileSizeKb, setFileSizeKb] = useState<number>(0);
+  const [fileSizeBytes, setFileSizeBytes] = useState<number>(0);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const presets = {
@@ -241,10 +242,10 @@ export const BangladeshTools: React.FC<BangladeshToolProps> = ({ toolSlug }) => 
       const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
       setResizedImageUrl(dataUrl);
 
-      // Estimate file size in KB
+      // Estimate file size in bytes
       const head = 'data:image/jpeg;base64,';
       const sizeBytes = Math.round((dataUrl.length - head.length) * 3 / 4);
-      setFileSizeKb(Math.round(sizeBytes / 1024));
+      setFileSizeBytes(sizeBytes);
       showToast(`Image resized to ${target.width}x${target.height}px`);
     };
   };
@@ -579,7 +580,17 @@ export const BangladeshTools: React.FC<BangladeshToolProps> = ({ toolSlug }) => 
                   <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100 mt-0.5">
                     {presets[selectedPreset].width} x {presets[selectedPreset].height} px
                   </h4>
-                  <span className="text-xs text-slate-500">File size: approx {fileSizeKb} KB</span>
+                  <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-1">
+                    <span>Estimated size:</span>
+                    <FileSize
+                      bytes={fileSizeBytes}
+                      showBadge
+                      variant={fileSizeBytes / 1024 <= presets[selectedPreset].maxKb ? 'emerald' : 'amber'}
+                    />
+                    <span className="text-[11px] text-slate-400">
+                      (Limit: ≤{presets[selectedPreset].maxKb} KB)
+                    </span>
+                  </div>
                 </div>
               </div>
 

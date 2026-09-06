@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Copy, Trash2, Download, Check, Sparkles, ArrowDownAZ, RefreshCw } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { FileSize } from '../common/FileSize';
 
 interface TextToolProps {
   toolSlug: string;
@@ -70,6 +71,7 @@ export const TextTools: React.FC<TextToolProps> = ({ toolSlug }) => {
       readingTimeSec,
       speakingTimeSec,
       topKeywords,
+      byteSize: new Blob([text]).size,
     };
   }, [text]);
 
@@ -404,7 +406,7 @@ export const TextTools: React.FC<TextToolProps> = ({ toolSlug }) => {
       )}
 
       {/* Real-time Statistics Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5 pt-2">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-7 gap-2.5 pt-2">
         <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 text-center shadow-xs">
           <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Words</span>
           <p className="text-2xl font-extrabold text-slate-900 dark:text-white mt-0.5">{wordStats.wordCount}</p>
@@ -424,6 +426,12 @@ export const TextTools: React.FC<TextToolProps> = ({ toolSlug }) => {
         <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 text-center shadow-xs">
           <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Paragraphs</span>
           <p className="text-2xl font-extrabold text-slate-900 dark:text-white mt-0.5">{wordStats.paragraphs}</p>
+        </div>
+        <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 text-center shadow-xs">
+          <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">File Size</span>
+          <p className="text-xl font-extrabold text-indigo-600 dark:text-indigo-400 mt-1">
+            <FileSize bytes={wordStats.byteSize} />
+          </p>
         </div>
         <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 text-center shadow-xs">
           <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Reading Time</span>

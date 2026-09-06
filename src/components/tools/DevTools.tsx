@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Copy, Trash2, Check, Download, AlertCircle, CheckCircle2, Play, RefreshCw, Code, Clock } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { FileSize } from '../common/FileSize';
 
 interface DevToolProps {
   toolSlug: string;
@@ -335,7 +336,15 @@ export const DevTools: React.FC<DevToolProps> = ({ toolSlug }) => {
             </button>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            {!jsonError && jsonStats && (
+              <span className="text-xs text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5 font-medium">
+                <span>{jsonStats.keys} {jsonStats.keys === 1 ? 'key' : 'keys'}</span>
+                <span>•</span>
+                <span>Size:</span>
+                <FileSize bytes={jsonStats.size} showBadge variant="neutral" />
+              </span>
+            )}
             {jsonError ? (
               <span className="flex items-center gap-1.5 text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 px-2.5 py-1 rounded-lg border border-rose-200 dark:border-rose-900">
                 <AlertCircle className="w-3.5 h-3.5" /> Invalid JSON
@@ -375,15 +384,24 @@ export const DevTools: React.FC<DevToolProps> = ({ toolSlug }) => {
             </button>
           </div>
 
-          <label className="flex items-center gap-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={urlSafeBase64}
-              onChange={e => setUrlSafeBase64(e.target.checked)}
-              className="rounded text-indigo-600"
-            />
-            <span>URL-Safe Base64 (- and _)</span>
-          </label>
+          <div className="flex items-center gap-3 flex-wrap">
+            <label className="flex items-center gap-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={urlSafeBase64}
+                onChange={e => setUrlSafeBase64(e.target.checked)}
+                className="rounded text-indigo-600"
+              />
+              <span>URL-Safe Base64 (- and _)</span>
+            </label>
+
+            <div className="flex items-center gap-2 text-xs text-neutral-500 pl-2 border-l border-neutral-300 dark:border-neutral-700">
+              <span>Input:</span>
+              <FileSize bytes={new Blob([inputVal]).size} showBadge variant="neutral" />
+              <span>Output:</span>
+              <FileSize bytes={new Blob([outputVal]).size} showBadge variant="neutral" />
+            </div>
+          </div>
         </div>
       )}
 
